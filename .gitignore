@@ -1,0 +1,6 @@
+node_modules/
+*.docx
+week_data.json
+narrative.json
+fetch_err.log
+.env
