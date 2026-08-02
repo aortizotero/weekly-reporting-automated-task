@@ -1,4 +1,4 @@
-# motorlab-reporting
+# weekly-reporting-automated-task
 
 🇲🇽 [Leer en español](README.es.md)
 
