@@ -2,15 +2,15 @@
 
 🇬🇧 [Read this in English](README.md)
 
-Genera el reporte semanal (y sirve de base para el mensual) de Creative Performance de MotorLab, con el look and feel de marca (ver ejemplo: `motorlab_creative_report_junio_2026.pdf` en el proyecto).
+Genera el reporte semanal (y sirve de base para el mensual) de Creative Performance del cliente, con el look and feel de su marca.
 
-Cuenta publicitaria: **Motorlab - 1008** (`721186374214232`).
+Cuenta publicitaria: la del cliente (ID vía variable de entorno o el conector MCP, nunca hardcodeado).
 
 ## Pipeline
 
 1. **Obtener datos** — breakdown por creativo (ad) y por día de las campañas activas.
-   - **Camino primario (recomendado, sin tokens):** usar el conector MCP de Meta ya conectado en claude.ai (`ads_get_ad_entities`, `level: "ad"`, `time_increment: "1"`, `filtering: [{"field":"campaign.effective_status","operator":"IN","value":["ACTIVE"]}]`, `fields: ["id","name","campaign_id","amount_spent","impressions","clicks","results","cost_per_result"]`). El campo `results`/`cost_per_result` ya resuelve automáticamente la métrica de conversión configurada en la campaña (para MotorLab: "Messaging conversations started") — no hay que adivinar el `action_type`.
-   - **Camino alterno (local, con token):** `fetch_weekly_data.js`, requiere `META_ACCESS_TOKEN`/`META_AD_ACCOUNT_ID` en el entorno (ver `~/Proyectos/MCPs/mcp-meta-ads/.env` en la máquina de Alex). Usar solo si el MCP no está disponible.
+   - **Camino primario (recomendado, sin tokens):** usar el conector MCP de Meta ya conectado en claude.ai (`ads_get_ad_entities`, `level: "ad"`, `time_increment: "1"`, `filtering: [{"field":"campaign.effective_status","operator":"IN","value":["ACTIVE"]}]`, `fields: ["id","name","campaign_id","amount_spent","impressions","clicks","results","cost_per_result"]`). El campo `results`/`cost_per_result` ya resuelve automáticamente la métrica de conversión configurada en la campaña (para el cliente: "Messaging conversations started") — no hay que adivinar el `action_type`.
+   - **Camino alterno (local, con token):** `fetch_weekly_data.js`, requiere `META_ACCESS_TOKEN`/`META_AD_ACCOUNT_ID` como variables de entorno (sin defaults hardcodeados). Usar solo si el MCP no está disponible.
    - Cualquiera de los dos caminos debe producir/transformarse a la forma de `week_data.json` (ver "Forma de los datos" abajo).
 
 2. **Analizar y escribir el criterio** — esto SIEMPRE lo hace el agente/modelo con juicio real sobre los números, nunca una plantilla fija. Ver "Forma de narrative.json" abajo. Comparar semana actual vs semana previa (7 días antes del rango actual).
@@ -22,7 +22,7 @@ Cuenta publicitaria: **Motorlab - 1008** (`721186374214232`).
    PYTHONUTF8=1 python validate.py output.docx
    ```
 
-5. **Entregar** — guardar en `~/Proyectos/Motorlab/reports/` (local) y/o según la rutina que lo dispare (ver Automatización).
+5. **Entregar** — guardar localmente y/o según la rutina que lo dispare (ver Automatización).
 
 ## Forma de los datos — `week_data.json`
 
@@ -59,15 +59,15 @@ Si los datos vienen del MCP (`ads_get_ad_entities`), hay que parsear `amount_spe
 }
 ```
 
-Reglas de contenido (heredadas de las reglas de marca de MotorLab, ver `Proyectos/Motorlab/CLAUDE.md` sección 6): nunca "gratis", evitar rayas largas (em dashes), tono profesional/directo/educativo.
+Reglas de contenido (heredadas de las reglas de marca del cliente, definidas en su documento interno de contexto de marca): nunca "gratis", evitar rayas largas (em dashes), tono profesional/directo/educativo.
 
 ## Automatización
 
 - **Recordatorio semanal** (rutina en la nube, sábados 1pm hora Monterrey): por ahora solo manda una notificación push, Alex corre el reporte manualmente pidiéndoselo a Claude Code.
-- **Reporte mensual completo**: usar el skill `motorlab-monthly-report` (comparativo mes vs mes, análisis por tipo de CTA) — solo ofrecerlo en la primera semana del mes, nunca generarlo automáticamente sin que Alex lo pida.
+- **Reporte mensual completo**: usar el skill dedicado de reporte mensual (comparativo mes vs mes, análisis por tipo de CTA) — solo ofrecerlo en la primera semana del mes, nunca generarlo automáticamente sin que Alex lo pida.
 
 ## Archivos
 
-- `build_weekly_report.js` — motor de plantilla del .docx (colores/tablas de marca MotorLab). No debería necesitar cambios seguido.
+- `build_weekly_report.js` — motor de plantilla del .docx (colores/tablas de la marca del cliente). No debería necesitar cambios seguido.
 - `fetch_weekly_data.js` — camino alterno local con token (ver arriba, no es el camino primario).
 - `package.json` — depende de `docx` (npm).

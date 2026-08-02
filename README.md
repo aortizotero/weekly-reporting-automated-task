@@ -2,7 +2,7 @@
 
 🇲🇽 [Leer en español](README.es.md)
 
-Automated weekly ad-performance reporting for **MotorLab Auto Service**, a preventive-maintenance auto shop in Monterrey, Mexico. Every Saturday, an autonomous Claude Code routine pulls live creative-level performance data straight from Meta Ads, writes an actual analysis of the week (not a templated summary), and delivers a branded Word report as a ready-to-send Gmail draft — with zero API tokens stored anywhere in the pipeline.
+Automated weekly ad-performance reporting for **an auto-repair shop**, a preventive-maintenance auto shop in Monterrey, Mexico. Every Saturday, an autonomous Claude Code routine pulls live creative-level performance data straight from Meta Ads, writes an actual analysis of the week (not a templated summary), and delivers a branded Word report as a ready-to-send Gmail draft — with zero API tokens stored anywhere in the pipeline.
 
 ## What it does
 
@@ -33,4 +33,4 @@ No secrets live in this repo or in the scheduled job's configuration — authent
 
 ## Status
 
-Live and running weekly for MotorLab's Meta Ads account. No real client financial data is committed to this repo — all figures are fetched fresh on each run and never persisted here.
+Live and running weekly for the client's Meta Ads account. No real client financial data is committed to this repo — all figures are fetched fresh on each run and never persisted here.

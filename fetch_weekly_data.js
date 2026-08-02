@@ -1,4 +1,4 @@
-// Fetches ad-level daily insights for the MotorLab ad account, for a given
+// Fetches ad-level daily insights for the client's ad account, for a given
 // date range and the equivalent prior range, and aggregates per creative.
 // Deterministic, no judgment calls — the reporting agent adds analysis on top.
 //
@@ -6,7 +6,8 @@
 //   node --env-file=../MCPs/mcp-meta-ads/.env fetch_weekly_data.js --since 2026-07-26 --until 2026-08-01
 // Output: JSON on stdout — { period: {...}, prior: {...} }
 
-const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID || "act_721186374214232";
+const AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID;
+if (!AD_ACCOUNT_ID) throw new Error("Falta META_AD_ACCOUNT_ID en el entorno");
 const ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
 if (!ACCESS_TOKEN) throw new Error("Falta META_ACCESS_TOKEN en el entorno");
 

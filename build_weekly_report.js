@@ -1,4 +1,4 @@
-// Builds the MotorLab weekly creative performance .docx report.
+// Builds the weekly creative performance .docx report for the client's ad account.
 // Reads data from week_data.json (produced by fetch_weekly_data.js) and
 // narrative content (hallazgos, recomendaciones) from narrative.json —
 // the judgment/analysis step, written by the reporting agent each run.
@@ -21,7 +21,7 @@ if (!dataPath || !narrativePath || !outPath) {
 const data = JSON.parse(fs.readFileSync(dataPath, "utf8"));
 const narrative = JSON.parse(fs.readFileSync(narrativePath, "utf8"));
 
-// ---- Brand style constants (matching motorlab-monthly-report skill) ----
+// ---- Brand style constants (matching the client's monthly-report skill) ----
 const BLUE_DARK = "1F4E79";
 const BLUE_MED = "2E75B6";
 const BLUE_LIGHT = "D5E8F0";
@@ -33,7 +33,7 @@ const WHITE = "FFFFFF";
 const GREEN_TEXT = "375623";
 const RED_TEXT = "C00000";
 const YELLOW_TEXT = "7F6000";
-const MOTORLAB_GREEN = "00AF66";
+const BRAND_GREEN = "00AF66";
 const CONTENT_W = 9360;
 
 const C7 = [3400, 900, 1000, 850, 850, 850, 1510];
@@ -274,8 +274,8 @@ const activeMulti = data.period.creatives
 
 const children = [
   // Cover
-  new Paragraph({ children: [new TextRun({ text: "MOTORLAB", bold: true, size: 80, color: MOTORLAB_GREEN })], spacing: { before: 2000, after: 200 }, alignment: AlignmentType.CENTER }),
-  new Paragraph({ children: [new TextRun({ text: "Reporte Semanal de Creatividades", bold: true, size: 44, color: MOTORLAB_GREEN })], alignment: AlignmentType.CENTER, spacing: { after: 100 } }),
+  new Paragraph({ children: [new TextRun({ text: "MOTORLAB", bold: true, size: 80, color: BRAND_GREEN })], spacing: { before: 2000, after: 200 }, alignment: AlignmentType.CENTER }),
+  new Paragraph({ children: [new TextRun({ text: "Reporte Semanal de Creatividades", bold: true, size: 44, color: BRAND_GREEN })], alignment: AlignmentType.CENTER, spacing: { after: 100 } }),
   new Paragraph({ children: [new TextRun({ text: `Semana del ${periodLabel}`, size: 32 })], alignment: AlignmentType.CENTER, spacing: { after: 300 } }),
   rule(),
   new Paragraph({ children: [new TextRun({ text: `Campañas activas: ${data.period.campaigns.join(", ")}`, size: 20 })], alignment: AlignmentType.CENTER, spacing: { after: 60 } }),
