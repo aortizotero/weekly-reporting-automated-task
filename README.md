@@ -1,71 +1,36 @@
 # motorlab-reporting
 
-Genera el reporte semanal (y sirve de base para el mensual) de Creative Performance de MotorLab, con el look and feel de marca (ver ejemplo: `motorlab_creative_report_junio_2026.pdf` en el proyecto).
+🇲🇽 [Leer en español](README.es.md)
 
-Cuenta publicitaria: **Motorlab - 1008** (`721186374214232`).
+Automated weekly ad-performance reporting for **MotorLab Auto Service**, a preventive-maintenance auto shop in Monterrey, Mexico. Every Saturday, an autonomous Claude Code routine pulls live creative-level performance data straight from Meta Ads, writes an actual analysis of the week (not a templated summary), and delivers a branded Word report as a ready-to-send Gmail draft — with zero API tokens stored anywhere in the pipeline.
 
-## Pipeline
+## What it does
 
-1. **Obtener datos** — breakdown por creativo (ad) y por día de las campañas activas.
-   - **Camino primario (recomendado, sin tokens):** usar el conector MCP de Meta ya conectado en claude.ai (`ads_get_ad_entities`, `level: "ad"`, `time_increment: "1"`, `filtering: [{"field":"campaign.effective_status","operator":"IN","value":["ACTIVE"]}]`, `fields: ["id","name","campaign_id","amount_spent","impressions","clicks","results","cost_per_result"]`). El campo `results`/`cost_per_result` ya resuelve automáticamente la métrica de conversión configurada en la campaña (para MotorLab: "Messaging conversations started") — no hay que adivinar el `action_type`.
-   - **Camino alterno (local, con token):** `fetch_weekly_data.js`, requiere `META_ACCESS_TOKEN`/`META_AD_ACCOUNT_ID` en el entorno (ver `~/Proyectos/MCPs/mcp-meta-ads/.env` en la máquina de Alex). Usar solo si el MCP no está disponible.
-   - Cualquiera de los dos caminos debe producir/transformarse a la forma de `week_data.json` (ver "Forma de los datos" abajo).
+1. **Pulls live data** — day-by-day, creative-by-creative spend, impressions, and conversions for every active campaign on the ad account, via Meta's official Ads MCP connector (no long-lived API key involved).
+2. **Analyzes it** — an LLM writes the actual findings and recommendations each week: which creatives are winning, which are losing efficiency, what changed vs. the prior week. This is judgment, not a fill-in-the-blanks template.
+3. **Builds the report** — a Node/`docx` engine renders a multi-page Word document matching the client's brand (cover page, KPI summary boxes, top-performer table, daily breakdown, prioritized recommendations).
+4. **Delivers it safely** — the finished `.docx` is attached to a Gmail **draft**, never auto-sent. A human always reviews before it goes out.
+5. **Runs on a schedule** — a cron-triggered cloud agent does all of the above unattended, then pings the account owner with a push notification once the draft is ready.
 
-2. **Analizar y escribir el criterio** — esto SIEMPRE lo hace el agente/modelo con juicio real sobre los números, nunca una plantilla fija. Ver "Forma de narrative.json" abajo. Comparar semana actual vs semana previa (7 días antes del rango actual).
+## Why this exists
 
-3. **Construir el .docx** — `node build_weekly_report.js week_data.json narrative.json output.docx`. Requiere `npm install` primero (usa la librería `docx`).
+Manually pulling Ads Manager exports and writing a weekly performance summary is repetitive, easy to skip, and easy to do inconsistently. This turns it into a standing, judgment-driven report that shows up every week without anyone having to remember to run it — while keeping a human in the loop for anything that leaves the account (the agent drafts, it never sends).
 
-4. **Validar** (usa el skill `docx` de Claude Code, `scripts/office/validate.py`). En Windows, forzar UTF-8 o falla con un error de encoding falso positivo:
-   ```bash
-   PYTHONUTF8=1 python validate.py output.docx
-   ```
+## Architecture
 
-5. **Entregar** — guardar en `~/Proyectos/Motorlab/reports/` (local) y/o según la rutina que lo dispare (ver Automatización).
-
-## Forma de los datos — `week_data.json`
-
-```json
-{
-  "period": {
-    "since": "YYYY-MM-DD", "until": "YYYY-MM-DD",
-    "campaigns": ["Nombre campaña", "..."],
-    "creatives": [
-      {
-        "ad_id": "...", "ad_name": "...", "campaign_name": "...",
-        "spend": 0, "impressions": 0, "clicks": 0, "convs": 0,
-        "cost_per_conv": 0,
-        "days": [{"date": "YYYY-MM-DD", "spend": 0, "impressions": 0, "clicks": 0, "convs": 0}]
-      }
-    ],
-    "totals": {"spend": 0, "impressions": 0, "clicks": 0, "convs": 0, "cost_per_conv": 0}
-  },
-  "prior": { "...misma forma, semana anterior..." },
-  "conversion_action_type": "..."
-}
+```
+Meta Ads MCP  →  raw data (JSON)  →  LLM analysis (narrative.json)  →  docx template engine  →  Gmail draft + push notification
 ```
 
-Si los datos vienen del MCP (`ads_get_ad_entities`), hay que parsear `amount_spent` (viene como string `"$205,30 MXN"`) y `results.value` (viene como string `"5 (Messaging conversations started)"`) a números antes de armar este JSON.
+No secrets live in this repo or in the scheduled job's configuration — authentication to Meta and Gmail happens through pre-authorized MCP connectors, not embedded API keys. See [`README.es.md`](README.es.md) for the full technical runbook: exact data shapes, field mappings, and the local (token-based) fallback path for running the pipeline outside of the scheduled job.
 
-## Forma de `narrative.json`
+## Stack
 
-```json
-{
-  "contexto": ["1-2 párrafos de contexto general de la semana"],
-  "hallazgos": ["5-6 hallazgos específicos, patrón: 'Creatividad: observación específica. Por qué importa.'"],
-  "recomendaciones": [{"priority": "ALTA|MEDIA|BAJA", "action": "...", "justification": "..."}],
-  "monthlyOffer": "Texto opcional, solo si hoy cae en los primeros 7 días del mes — ofrece (no genera) el reporte mensual completo."
-}
-```
+- **Node.js** + [`docx`](https://www.npmjs.com/package/docx) — brand-accurate `.docx` generation (custom KPI boxes, colored tables, headers/footers, no template dependency on Word/Office)
+- **Meta Marketing API** via an MCP connector — creative-level, day-by-day insights
+- **Gmail API** via an MCP connector — draft creation with attachments
+- **Claude Code scheduled routines** — the orchestration layer; no server, no cron box to maintain
 
-Reglas de contenido (heredadas de las reglas de marca de MotorLab, ver `Proyectos/Motorlab/CLAUDE.md` sección 6): nunca "gratis", evitar rayas largas (em dashes), tono profesional/directo/educativo.
+## Status
 
-## Automatización
-
-- **Recordatorio semanal** (rutina en la nube, sábados 1pm hora Monterrey): por ahora solo manda una notificación push, Alex corre el reporte manualmente pidiéndoselo a Claude Code.
-- **Reporte mensual completo**: usar el skill `motorlab-monthly-report` (comparativo mes vs mes, análisis por tipo de CTA) — solo ofrecerlo en la primera semana del mes, nunca generarlo automáticamente sin que Alex lo pida.
-
-## Archivos
-
-- `build_weekly_report.js` — motor de plantilla del .docx (colores/tablas de marca MotorLab). No debería necesitar cambios seguido.
-- `fetch_weekly_data.js` — camino alterno local con token (ver arriba, no es el camino primario).
-- `package.json` — depende de `docx` (npm).
+Live and running weekly for MotorLab's Meta Ads account. No real client financial data is committed to this repo — all figures are fetched fresh on each run and never persisted here.
