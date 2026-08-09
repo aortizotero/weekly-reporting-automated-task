@@ -63,8 +63,14 @@ Reglas de contenido (heredadas de las reglas de marca del cliente, definidas en 
 
 ## Automatización
 
-- **Recordatorio semanal** (rutina en la nube, sábados 1pm hora Monterrey): por ahora solo manda una notificación push, Alex corre el reporte manualmente pidiéndoselo a Claude Code.
+- **Reporte semanal automático** (rutina en la nube, todos los lunes 6:00 AM hora Monterrey): corre el pipeline completo sin intervención de Alex — obtiene los datos de la semana recién cerrada (lunes a domingo anterior) vía el conector MCP de Meta, escribe el análisis, arma el .docx, lo valida y lo entrega como **draft** de Gmail (nunca se envía solo). Termina con una notificación push avisando que el draft está listo para revisar.
 - **Reporte mensual completo**: usar el skill dedicado de reporte mensual (comparativo mes vs mes, análisis por tipo de CTA) — solo ofrecerlo en la primera semana del mes, nunca generarlo automáticamente sin que Alex lo pida.
+
+### Configuración del trigger
+
+Los triggers recurrentes de Claude Code on the web se configuran en la UI del entorno (Settings → Triggers), no desde una sesión de chat ni desde código en este repo — una sesión de Claude Code no tiene forma de crear ese tipo de trigger por sí misma. El texto exacto a pegar ahí (cron, zona horaria y prompt) está en [`TRIGGER_PROMPT.md`](TRIGGER_PROMPT.md).
+
+Nota: la herramienta `CronCreate` que a veces usan las sesiones de Claude Code **no sirve para esto** — vive solo dentro de esa sesión, muere si la sesión termina, y expira sola a los 7 días aunque la sesión siga viva. Si alguna vez el reporte semanal deja de llegar, lo primero que hay que revisar es si el trigger real (el de la UI) sigue configurado, no si hay un cron job corriendo.
 
 ## Archivos
 
