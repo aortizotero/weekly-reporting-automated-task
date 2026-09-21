@@ -50,6 +50,24 @@ function convsOf(row) {
   return a ? Number(a.value) : 0;
 }
 
+const WEEKDAYS = ["Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"];
+
+function weekdayBreakdown(rows) {
+  const byDay = {};
+  for (const name of WEEKDAYS) byDay[name] = { spend: 0, convs: 0 };
+  for (const row of rows) {
+    const wd = WEEKDAYS[new Date(row.date_start + "T00:00:00Z").getUTCDay()];
+    byDay[wd].spend += Number(row.spend || 0);
+    byDay[wd].convs += convsOf(row);
+  }
+  for (const name of WEEKDAYS) {
+    const d = byDay[name];
+    d.spend = Math.round(d.spend * 100) / 100;
+    d.cost_per_conv = d.convs > 0 ? Math.round((d.spend / d.convs) * 100) / 100 : null;
+  }
+  return byDay;
+}
+
 function aggregate(rows) {
   const byCreative = {};
   const byCampaign = new Set();
@@ -114,7 +132,7 @@ async function main() {
   ]);
 
   const result = {
-    period: { since, until, ...aggregate(currentRows) },
+    period: { since, until, ...aggregate(currentRows), by_weekday: weekdayBreakdown(currentRows) },
     prior: { since: priorSince, until: priorUntil, ...aggregate(priorRows) },
     conversion_action_type: CONVERSION_ACTION_TYPE,
   };
