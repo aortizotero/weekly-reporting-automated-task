@@ -33,12 +33,18 @@ el paso 0 de correcciones de métrica).
    - Nivel "campaign" para reach/frequency semanal de las últimas 3-4
      semanas de la campaña de mensajería principal.
 
-3. Corre `fetch_chatwoot_ad_conversations.js` (usa las variables de
-   entorno CHATWOOT_BASE_URL/CHATWOOT_ACCOUNT_ID/CHATWOOT_API_TOKEN, ya
-   configuradas en esta rutina) para el mismo rango. Compara su
-   `ad_conversations` contra el total de `results` de Meta — si difieren
-   más de ~10%, dilo explícito y usa el número de Chatwoot como el real,
-   sobre todo si la semana reportada es borde de un rango más largo.
+3. Intenta correr `fetch_chatwoot_ad_conversations.js` para el mismo
+   rango. Mientras esta rutina no tenga configuradas las variables de
+   entorno CHATWOOT_BASE_URL/CHATWOOT_ACCOUNT_ID/CHATWOOT_API_TOKEN
+   (pendiente en la configuración del Environment, no de la rutina), si
+   el script falla por credenciales faltantes esto NO es un error real
+   del reporte: sigue sin este paso y marca en el texto que el número de
+   conversaciones de Meta quedó "sin verificar contra Chatwoot esta
+   semana" (se revisa a mano cada lunes). Si el script SÍ corre, compara
+   su `ad_conversations` contra el total de `results` de Meta — si
+   difieren más de ~10%, dilo explícito y usa el número de Chatwoot como
+   el real, sobre todo si la semana reportada es borde de un rango más
+   largo.
 
 4. Escribe el análisis real con juicio, en español, primera persona,
    como si Alex se lo mandara a Mario (el dueño) — nunca en tercera
@@ -74,7 +80,27 @@ el paso 0 de correcciones de métrica).
 7. Manda una notificación push avisando que el draft quedó listo para
    revisar y enviar.
 
-Si algo falla (conector desconectado, datos vacíos, error armando el
-HTML), no crees un draft a medias — manda una notificación push
-describiendo el error específico en vez de un reporte incompleto.
+Si algo falla de verdad (conector de Meta desconectado, datos vacíos,
+error armando el HTML), no crees un draft a medias — manda una
+notificación push describiendo el error específico en vez de un
+reporte incompleto. La falta de credenciales de Chatwoot NO cuenta como
+ese tipo de falla (ver paso 3).
 ```
+
+## Pendiente
+
+Agregar estas variables de entorno en la configuración del Environment
+(no de la rutina) en https://claude.ai/code/routines, para que el paso 3
+pueda cruzar contra Chatwoot en vez de marcar el número como "sin
+verificar":
+
+```
+CHATWOOT_BASE_URL=https://ml.reptilialab.com
+CHATWOOT_ACCOUNT_ID=1
+CHATWOOT_API_TOKEN=<token de solo lectura>
+CHATWOOT_ADS_INBOX_NAME=Leads Publicidad Pagada
+CHATWOOT_WEBSITE_INBOX_NAME=Motorlab
+CHATWOOT_EXCLUDE_PHONES=5218110397098
+```
+
+Mientras no se agreguen, la reconciliación se hace a mano cada lunes.
