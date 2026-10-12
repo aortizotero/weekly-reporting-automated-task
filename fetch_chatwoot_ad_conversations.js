@@ -12,8 +12,12 @@
 // ese campo. Este script separa ambos casos en vez de llamarlos "organico" a ciegas —
 // ajustar ADS_INBOX_NAME / WEBSITE_CHAT_INBOX_NAME abajo a los inboxes reales del cliente.
 //
-// Requiere variables de entorno: CHATWOOT_BASE_URL, CHATWOOT_ACCOUNT_ID,
-// CHATWOOT_API_TOKEN (token de solo lectura).
+// Variables de entorno: CHATWOOT_BASE_URL (default https://ml.reptilialab.com),
+// CHATWOOT_ACCOUNT_ID (default 1), CHATWOOT_API_TOKEN (token de solo lectura).
+// El token es opcional: en la rutina en la nube no existe como variable, lo inyecta el
+// proxy del sandbox como encabezado `api_access_token` (secreto "Chatwoot" del
+// environment). Por eso las peticiones van por curl, que respeta HTTPS_PROXY (el fetch
+// de Node no). Fechas en hora de Monterrey (UTC-6, sin horario de verano).
 //
 // Uso:
 //   node --env-file=.env fetch_chatwoot_ad_conversations.js --since 2026-08-24 --until 2026-09-20
@@ -21,10 +25,18 @@
 //   sin_referral_inbox_ads, otro_canal, otros_inboxes, excluded,
 //   by_day: { "YYYY-MM-DD": { total, ad } } }
 
+const { execFile } = require("node:child_process");
+const { promisify } = require("node:util");
+const run = promisify(execFile);
+
 const ADS_INBOX_NAME = process.env.CHATWOOT_ADS_INBOX_NAME || "Leads Publicidad Pagada";
-const WEBSITE_CHAT_INBOX_NAME = process.env.CHATWOOT_WEBSITE_INBOX_NAME || "";
-const EXCLUDE_PHONES = (process.env.CHATWOOT_EXCLUDE_PHONES || "").split(",").filter(Boolean);
-const MAX_MESSAGE_PAGES = 20; // salvaguarda contra hilos anormalmente largos
+const WEBSITE_CHAT_INBOX_NAME = process.env.CHATWOOT_WEBSITE_INBOX_NAME || "Motorlab";
+const EXCLUDE_PHONES = (process.env.CHATWOOT_EXCLUDE_PHONES || "5218110397098").split(",").filter(Boolean);
+const BASE_URL = process.env.CHATWOOT_BASE_URL || "https://ml.reptilialab.com";
+const ACC = process.env.CHATWOOT_ACCOUNT_ID || "1";
+const TOKEN = process.env.CHATWOOT_API_TOKEN || "";
+const TZ_OFFSET = "-06:00"; // America/Monterrey
+const CONCURRENCY = 8;
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -33,121 +45,102 @@ function parseArgs() {
   return out;
 }
 
-function loadCreds() {
-  const creds = {
-    CHATWOOT_BASE_URL: process.env.CHATWOOT_BASE_URL,
-    CHATWOOT_ACCOUNT_ID: process.env.CHATWOOT_ACCOUNT_ID,
-    CHATWOOT_API_TOKEN: process.env.CHATWOOT_API_TOKEN,
-  };
-  if (!creds.CHATWOOT_BASE_URL || !creds.CHATWOOT_ACCOUNT_ID || !creds.CHATWOOT_API_TOKEN) {
-    throw new Error("Faltan CHATWOOT_BASE_URL / CHATWOOT_ACCOUNT_ID / CHATWOOT_API_TOKEN en el entorno");
+async function cw(urlPath) {
+  const args = ["-sS", "--fail-with-body", "--max-time", "60", `${BASE_URL}/api/v1/accounts/${ACC}${urlPath}`];
+  if (TOKEN) args.push("-H", `api_access_token: ${TOKEN}`);
+  try {
+    const { stdout } = await run("curl", args, { maxBuffer: 50 * 1024 * 1024 });
+    return JSON.parse(stdout);
+  } catch (e) {
+    throw new Error(`Chatwoot fallo en ${urlPath}: ${(e.stderr || e.message || "").trim()} ${(e.stdout || "").slice(0, 200)}`);
   }
-  return creds;
 }
 
-async function cw(creds, urlPath) {
-  const url = `${creds.CHATWOOT_BASE_URL}${urlPath}`;
-  const res = await fetch(url, { headers: { api_access_token: creds.CHATWOOT_API_TOKEN } });
-  if (!res.ok) throw new Error(`Chatwoot ${res.status} en ${urlPath}`);
-  return res.json();
-}
-
-async function loadInboxNames(creds) {
-  const data = await cw(creds, `/api/v1/accounts/${creds.CHATWOOT_ACCOUNT_ID}/inboxes`);
+async function loadInboxNames() {
+  const data = await cw(`/inboxes`);
   const names = {};
   for (const ib of data?.payload || []) names[ib.id] = ib.name;
   return names;
 }
 
-async function listConversations(creds, sinceTs, untilTs) {
-  const acc = creds.CHATWOOT_ACCOUNT_ID;
+// Chatwoot ordena por last_activity_at desc. Una conversacion creada en el rango tiene
+// actividad >= sinceTs, asi que cuando una pagina entera ya es mas vieja, paramos.
+async function listConversations(sinceTs, untilTs) {
   const inRange = [];
-  let page = 1;
-  for (;;) {
-    const data = await cw(creds, `/api/v1/accounts/${acc}/conversations?status=all&page=${page}`);
+  for (let page = 1; page <= 200; page++) {
+    const data = await cw(`/conversations?status=all&page=${page}`);
     const payload = data?.data?.payload || data?.payload || [];
     if (payload.length === 0) break;
     for (const conv of payload) {
       if (conv.created_at >= sinceTs && conv.created_at < untilTs) inRange.push(conv);
     }
-    // Chatwoot ordena por actividad reciente, no por created_at, así que no cortamos
-    // por edad de una página — solo paramos cuando ya no hay más páginas.
-    page += 1;
-    if (page > 200) throw new Error("Demasiadas páginas de conversaciones, revisar manualmente");
+    if (payload.every((c) => (c.last_activity_at || c.timestamp || 0) < sinceTs)) break;
   }
   return inRange;
 }
 
-async function findFirstInboundMessage(creds, conversationId) {
-  const acc = creds.CHATWOOT_ACCOUNT_ID;
-  let before = undefined;
-  const all = [];
-  for (let i = 0; i < MAX_MESSAGE_PAGES; i++) {
-    const qs = before ? `?before=${before}` : "";
-    const data = await cw(creds, `/api/v1/accounts/${acc}/conversations/${conversationId}/messages${qs}`);
-    const payload = data?.payload || [];
-    if (payload.length === 0) break;
-    all.push(...payload);
-    before = payload[0].id; // la API regresa mas viejo -> mas nuevo dentro de la pagina; antes = el mas viejo de esta pagina
-  }
-  const inbound = all.filter((m) => m.message_type === 0);
-  if (inbound.length === 0) return null;
+// ?after=0 regresa los mensajes desde el inicio de la conversacion (orden ascendente).
+async function findFirstInboundMessage(conversationId) {
+  const data = await cw(`/conversations/${conversationId}/messages?after=0`);
+  const inbound = (data?.payload || []).filter((m) => m.message_type === 0);
   inbound.sort((a, b) => a.created_at - b.created_at);
-  return inbound[0];
+  return inbound[0] || null;
 }
 
 function dateKey(unixTs) {
-  return new Date(unixTs * 1000).toISOString().slice(0, 10);
+  return new Date((unixTs - 6 * 3600) * 1000).toISOString().slice(0, 10);
 }
 
 async function main() {
   const { since, until } = parseArgs();
   if (!since || !until) throw new Error("Uso: --since YYYY-MM-DD --until YYYY-MM-DD");
-  const creds = loadCreds();
 
-  const sinceTs = Math.floor(new Date(since + "T00:00:00Z").getTime() / 1000);
-  const untilTs = Math.floor(new Date(until + "T00:00:00Z").getTime() / 1000) + 86400; // hasta incluye el dia completo
+  const sinceTs = Math.floor(new Date(`${since}T00:00:00${TZ_OFFSET}`).getTime() / 1000);
+  const untilTs = Math.floor(new Date(`${until}T00:00:00${TZ_OFFSET}`).getTime() / 1000) + 86400; // hasta incluye el dia completo
 
-  const conversations = await listConversations(creds, sinceTs, untilTs);
-  const inboxNames = await loadInboxNames(creds);
+  const all = await listConversations(sinceTs, untilTs);
+  const inboxNames = await loadInboxNames();
+
+  const conversations = all.filter((conv) => {
+    const phone = conv.meta?.sender?.phone_number || conv.contact_inbox?.source_id || "";
+    return !EXCLUDE_PHONES.some((p) => phone.includes(p));
+  });
+  const excludedCount = all.length - conversations.length;
+
+  const firstMsgs = [];
+  for (let i = 0; i < conversations.length; i += CONCURRENCY) {
+    const batch = conversations.slice(i, i + CONCURRENCY);
+    firstMsgs.push(...(await Promise.all(batch.map((c) => findFirstInboundMessage(c.id)))));
+  }
 
   const byDay = {};
   let adCount = 0;
   let sinReferralInboxAds = 0;
   let otroCanal = 0;
   let otrosInboxes = 0;
-  let excludedCount = 0;
 
-  for (const conv of conversations) {
+  conversations.forEach((conv, i) => {
     const day = dateKey(conv.created_at);
     if (!byDay[day]) byDay[day] = { total: 0, ad: 0 };
-
-    const phone = conv.meta?.sender?.phone_number || conv.contact_inbox?.source_id || "";
-    if (EXCLUDE_PHONES.some((p) => p && phone.includes(p))) {
-      excludedCount += 1;
-      continue;
-    }
     byDay[day].total += 1;
 
-    const firstMsg = await findFirstInboundMessage(creds, conv.id);
-    const referral = firstMsg?.content_attributes?.referral;
-    if (referral?.source_type === "ad") {
+    if (firstMsgs[i]?.content_attributes?.referral?.source_type === "ad") {
       adCount += 1;
       byDay[day].ad += 1;
-      continue;
+      return;
     }
-
     const inboxName = inboxNames[conv.inbox_id] || `inbox_${conv.inbox_id}`;
     if (WEBSITE_CHAT_INBOX_NAME && inboxName === WEBSITE_CHAT_INBOX_NAME) otroCanal += 1;
     else if (inboxName === ADS_INBOX_NAME) sinReferralInboxAds += 1;
     else otrosInboxes += 1;
-  }
+  });
 
-  const total = conversations.length - excludedCount;
+  const sortedByDay = Object.fromEntries(Object.entries(byDay).sort());
   const result = {
     since,
     until,
-    total_conversations: total,
+    timezone: "America/Monterrey",
+    total_conversations: conversations.length,
     ad_conversations: adCount,
     // probablemente SI son de anuncio (mismo inbox de ads, texto de arranque de anuncio)
     // pero a Meta no le llego el campo referral en ese webhook puntual.
@@ -156,7 +149,7 @@ async function main() {
     otro_canal: otroCanal,
     otros_inboxes: otrosInboxes,
     excluded: excludedCount,
-    by_day: byDay,
+    by_day: sortedByDay,
   };
   console.log(JSON.stringify(result, null, 2));
 }
