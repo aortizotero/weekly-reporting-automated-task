@@ -45,36 +45,38 @@ el paso 0 de correcciones de métrica).
    el reporte, marca el de Meta como "sin verificar contra Chatwoot esta
    semana" y pon el error exacto en la notificación push.
 
-4. Escribe el análisis real con juicio, en español, primera persona,
-   como si Alex se lo mandara a Mario (el dueño) — nunca en tercera
-   persona sobre Alex. Cubre estos 5 ángulos:
-   - Reconciliación Meta vs Chatwoot (paso 3).
-   - Por creativo: quién sube/baja vs la semana previa, y si el copy es
-     propio de MotorLab o lo generó la IA de Meta (Advantage+ — un
-     creativo con `body` vacío y `object_type: "SHARE"` es la señal).
-   - Por formato/copy (imagen estática, video con guion, carrusel).
-   - Por día de la semana (cuál sale más barato/caro).
-   - Saturación de audiencia: si el alcance nuevo por peso gastado baja
-     y la frecuencia sube semana a semana (paso 1), es momento de
-     proponer expandir audiencia antes de subir presupuesto ahí.
+4. Analiza con juicio los 5 ángulos (reconciliación Meta vs Chatwoot,
+   por creativo y si el copy es propio o de Advantage+ (`body` vacío =
+   Meta), por formato/copy, por día de la semana, saturación de
+   audiencia), pero en el reporte solo entra lo que explica el cambio de
+   la semana o lleva a una prueba. Si en Gmail hay un reporte anterior
+   ("Anuncios MotorLab | Semana") con pruebas propuestas, revisa en los
+   datos cómo les fue y abre "Qué pasó" con ese resultado.
 
-5. Construye el resumen directo en HTML (sin generar ni adjuntar un
-   .docx): cada afirmación numérica con su tabla de respaldo justo
-   debajo (no una tabla gigante al final), tono directo/casual, sin
-   lenguaje de framework ni relleno de IA, sin em dashes, nunca
-   "gratis". Nunca describir el gasto como "% del presupuesto del
-   anuncio" (el presupuesto vive en campaña/ad set, no en el ad). Nunca
-   describir "conversación iniciada" como "abrió WhatsApp" (la métrica
-   exige que se haya enviado un mensaje). Usa los colores de marca
-   definidos en build_weekly_report.js. Cierra con 2-4 decisiones
-   concretas a proponer, cada una separada (o una pregunta si falta
-   información para decidir) — no un resumen que repite lo ya dicho.
-   Revisa que el HTML tenga etiquetas balanceadas y los números
-   cuadrando contra los datos crudos antes de insertarlo.
+5. Escribe el reporte para Mario (el dueño) en la voz de Alex, primera
+   persona, tono WhatsApp casual, directo, que quepa en una pantalla.
+   Formato fijo:
+   - Una línea de saludo ("Mario, va el resumen de la semana.").
+   - Tabla de 3 filas: Inversión, Conversaciones por WhatsApp, Costo por
+     conversación; columnas esta semana / semana pasada / cambio. Debajo
+     una sola línea con el cruce de Chatwoot (o "sin verificar").
+   - "Qué pasó": máximo 4 bullets. Cada uno abre con la conclusión en
+     negrita y lleva un solo número de respaldo. Nada de jerga: no CPL,
+     CTR, CPM, frecuencia, Advantage+, CBO; dilo en palabras ("cada
+     conversación salió en $31", "el texto lo arma Meta en automático").
+   - "Qué vamos a probar esta semana": 2 o 3 pruebas concretas, una
+     variable cada una, cómo se decide quién gana y cuándo se reporta.
+     Solo pruebas que se puedan montar en Ads Manager esta semana.
+   - Opcional, una línea final con algo que se está vigilando.
+   Sin tablas extra, sin resumen al final, sin em dashes, nunca
+   "gratis", precios redondeados a pesos. Nunca "% del presupuesto del
+   anuncio" ni "abrió WhatsApp". HTML simple con BLUE_DARK 1F4E79 y
+   BRAND_GREEN 00AF66 de build_weekly_report.js, más la misma versión en
+   texto plano. Revisa que los números cuadren con los datos crudos.
 
 6. Crea un draft de Gmail (nunca lo envíes) dirigido a
-   alejandroortizotero@gmail.com con el resumen como htmlBody, sin
-   adjuntos. Asunto: "Meta Ads | Resumen semanal <since> – <until> <año>".
+   alejandroortizotero@gmail.com con htmlBody y body en texto plano, sin
+   adjuntos. Asunto: "Anuncios MotorLab | Semana <d> al <d> de <mes>".
 
 7. Manda una notificación push avisando que el draft quedó listo para
    revisar y enviar.
